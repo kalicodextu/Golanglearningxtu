@@ -509,7 +509,123 @@ var null struct{}
 set := make(map[string]struct{})
 set["a"] = null
 ```
-
-
-
-
+###1. 匿名字段
+- 匿名字段不过是一种语法糖，从根本上说，就是一个与成员类型同名（不包含包名）的字段。被匿名嵌入的可以是任意类型，也可以是指针。
+```
+type User struct {
+	name string
+}
+type Manager struct {
+	User
+	title string
+}
+m := Manager{
+	User: User{"Tom"}, // 匿名字段的显式字段名，和类型名相同。
+	title: "Administrator",
+}
+```
+- 可以像普通字段那样访问匿名字段成员，编译器从外向内逐级查找所有的匿名字段，直到发现目标或出错。
+```
+ype Resource struct {
+	id int
+}
+type User struct {
+	Resource
+	name string
+}
+type Manager struct {
+	User
+	title string
+}
+var m Manager
+m.id = 1
+m.name = "Jack"
+m.title = "Administrator"
+```
+- 外层同名字段会遮蔽嵌入字段成员，相同层次的同名字段也会让编译器⽆所适从。解决⽅法是使用显式字段名。
+```
+type Resource struct {
+	id int
+	name string
+}
+type Classify struct {
+	id int
+}
+type User struct {
+	Resource // Resource.id 与 Classify.id 处于同⼀一层次。
+	Classify
+	name string // 遮蔽 Resource.name。
+}
+u := User{
+	Resource{1, "people"},
+	Classify{100},
+	"Jack",
+}
+println(u.name) // User.name: Jack
+println(u.Resource.name) // people
+// println(u.id) // Error: ambiguous selector u.id
+println(u.Classify.id) // 100
+```
+- 不能同时嵌入某一类型和其指针类型，因为它们名字相同。
+```
+type Resource struct {
+	id int
+}
+type User struct {
+	*Resource
+	// Resource // Error: duplicate field Resource
+	name string
+}
+u := User{
+	&Resource{1},
+	"Administrator",
+}
+println(u.id)
+println(u.Resource.id)
+```
+###2. 面向对象
+- 面向对象三大特征里，Go 仅支封装，尽管匿名字段的内存布局和行为类似继承。没有class 关键字，没有继承、多态等等。
+```
+type User struct {
+	id int
+	name string
+}
+type Manager struct {
+	User
+	title string
+}
+m := Manager{User{1, "Tom"}, "Administrator"}
+// var u User = m // Error: cannot use m (type Manager) as type User in assignment
+// 没有继承，自然也不会有多态。
+var u User = m.User // 同类型拷贝。
+```
+- 内存布局和 C struct 相同，没有任何附加的 object 信息。
+```
+	|<-------- User:24 ------->|<-- title:16 -->|
+	+--------+-----------+------------+ 		+---------------+
+m 	|    1   |   string  |   string   | 		| Administrator | 	[n]byte
+	+--------+-----------+------------+ 		+---------------+
+				  | 			| 						|
+				  | +--->>>------------------>>>--------+
+				  |
+				  +--->>>-------------------->>>-----+
+													 |
+				  +--->>>-------------------->>>-+   |
+				  | 							 | 	 	|
+	+--------+-----------+ 						+---------+
+u   |   1    |   string  | 						|   Tom   | [n]byte
+	+--------+-----------+ 						+---------+
+	|<-id:8->|<-name:16->|
+```
+- 可用 unsafe 包相关函数输出内存地址信息。
+```
+m : 0x2102271b0, size: 40, align: 8
+m.id : 0x2102271b0, offset: 0
+m.name : 0x2102271b8, offset: 8
+m.title: 0x2102271c8, offset: 24
+```
+##五、总结
+　　本部分主要介绍了 Go 数据：array、slice、map、struct。从介绍中，基本可以看到Go与C语言的一些相同之处，也可以看到它从现代语言中提取的优点。学习、记录、灵活使用！
+##六、参考资料
+>1. [Go 学习笔记(雨痕)](https://github.com/qyuhen/book)
+>2. [Go Web 编程](https://github.com/astaxie/build-web-application-with-golang)
