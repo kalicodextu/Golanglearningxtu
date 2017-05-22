@@ -74,30 +74,49 @@ A.defe
 package main
 
 import (
+	"fmt"
+
 	"runtime"
-	"sync"
 )
 
+func say(s string) {
+
+	for i := 0; i < 2; i++ {
+
+		runtime.Gosched()
+
+		fmt.Println(s)
+
+	}
+
+}
+
 func main() {
-	wg := new(sync.WaitGroup)
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 6; i++ {
-			println(i)
-			if i == 3 {
-				runtime.Gosched()
-			}
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		println("Hello, World!")
-	}()
-	wg.Wait()
+
+	go say("world")
+
+	say("hello")
+
 }
 ```
 输出结果：
 ```
-
+hello
+world
+hello
+world
 ```
+##三、Chanel
+　　goroutine是运行在相同的地址空间（即CSP模式），Go提供了通信机制channel来进行同步。channel可以与Unix shell 中的双向管道做类比：可以通过它发送或者接收值。这些值只能是特定的类型：channel类型。定义一个channel时，也需要定义发送到channel的值的类型。因为默认同步模式，需要发送与接收配对，否则会被阻塞,知道另一方准备好后被唤醒。
+- 使用`make`创建`channel`
+```
+ci := make(chan int)
+cs := make(chan string)
+cf := make(chan interface{})
+```
+- channel通过操作符`<-`来接收和发送数据
+```
+ch <- v // 发送v到channel ch.
+v := <-ch // 从ch中接收数据，并赋值给v
+```
+- 
